@@ -98,6 +98,7 @@ medRCT <- function(dat,
                    mcsim = 200,
                    bootstrap = TRUE,
                    boot_args = list(R = 100, stype = "i", ci.type = "norm"),
+                   test = NULL,
                    ...) {
   # match intervention type
   intervention_type = sapply(intervention_type, function(arg)
