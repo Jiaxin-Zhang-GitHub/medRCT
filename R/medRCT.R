@@ -21,6 +21,8 @@ utils::globalVariables(".SD")
 #'  The intermediate confounders can be binary or continuous. If \code{NULL},
 #'  no intermediate confounders are specified.
 #' @param confounders  A \code{character} vector listing the names of the variables in the dataset corresponding to the baseline confounders.
+#' @param joint_med A \code{character} vector specifying the names of the variables in the dataset corresponding to the joint shift of the mediators of interest. 
+#'  The joint mediators need to be subset of @param mediators. The causal order of mediators in joint interventation is the same as the order in the @param mediators. 
 #' @param interactions_XC A \code{character} string specifying the two-way interactions between exposure and baseline confounders
 #'  to include in the regression models in the estimation procedure. The default value, \code{"all"},
 #'  includes all two-way exposure-confounder interactions but excludes confounder-confounder interactions.
@@ -36,6 +38,8 @@ utils::globalVariables(".SD")
 #'   \item \code{"shift_k_order"}: Estimates an interventional indirect effect mapped to a target trial assessing the impact of shifting the distribution of a
 #'    specific mediator (\code{k}) in the exposed, given baseline confounders, to match the corresponding distribution in the unexposed while accounting for the flow-on
 #'    effects on causally descendant mediators.
+#'   \item \code{"shift_joint"}: Estimates an interventional indirect effect mapped to a target trial assessing the impact of shifting the joint distribution of a set 
+#'    of mediators in the exposed, given baseline confounders, to match the corresponding distribution in the unexposed.
 #' }
 #' @param mcsim An \code{integer} specifying the number of Monte Carlo simulations to perform. The default is 200.
 #' It is recommended to run analysis with no fewer than 200 Monte Carlo simulations.
@@ -47,6 +51,10 @@ utils::globalVariables(".SD")
 #'   \item \code{stype}: Specifies the statistic type passed to the \code{boot} function (default: \code{"i"}).
 #'   \item \code{ci.type}: Specifies the type of confidence interval to compute (default: \code{"norm"}).
 #' }
+#' @param noisy A \code{logical} value indicating whether to print the variables and formula for each mediation simulation. The default value is \code{FALSE}. 
+#'  Usually used for checking and debugging.
+#' @param control.seed An \code{integer} specifying the seed value for random draw at the begining of each loop, to control computation reproducable. Usually used for 
+#' checking and debugging.
 #' @param ... Additional arguments passed to the \code{boot} function from the \code{boot} package.
 #'
 #' @details
@@ -93,27 +101,32 @@ medRCT <- function(dat,
                    mediators,
                    intermediate_confs,
                    confounders,
+                   joint_med = NULL,  # Specify mediators for joint intervention
                    interactions_XC = "all",
-                   intervention_type = c("all", "shift_all", "shift_k", "shift_k_order"),
+                   intervention_type = c("all", "shift_all", "shift_k", "shift_k_order", "shift_joint"),  # Shift on joint intervention
                    mcsim = 200,
                    bootstrap = TRUE,
                    boot_args = list(R = 100, stype = "i", ci.type = "norm"),
-                   test = NULL,
+                   noisy = F,  # Set noisy = T for testing and debugging 
+                   control.seed = NULL, # Set seed for reproducible testing
                    ...) {
   # match intervention type
   intervention_type = sapply(intervention_type, function(arg)
     match.arg(
       arg,
-      choices = c("all", "shift_all", "shift_k", "shift_k_order")
+      choices = c("all", "shift_all", "shift_k", "shift_k_order", "shift_joint", "shift_joint")
     ))
 
   # set intervention type to shift_k when K==1
   if (length(mediators) == 1 &
-      any(intervention_type %in% c("all", "shift_all", "shift_k_order"))) {
+      any(intervention_type %in% c("all", "shift_all", "shift_k_order", "shift_joint"))) {
     intervention_type = "shift_k"
     message("Only able to estimate the effect type 'shift_k' with a single mediator.")
   }
+  
+  # Update for joint intervention, noisy and control.seed (to be pasted later)
 
+                             
   if(any(intervention_type %in% c("all", "shift_k_order"))) {
     message(paste0("Assumed causal order for estimating effect of type 'shift_k_order': ",  paste(mediators, collapse = ", "), "\n"))
   }
@@ -161,9 +174,9 @@ medRCT <- function(dat,
     interactions_XC <- gsub(exposure, "X", interactions_XC)
   }
 
-  # set R to 1 if bootstrap is not required
+  # set R to 0 if bootstrap is not required
   if (bootstrap == FALSE) {
-    boot_args$R = 1
+    boot_args$R = 0 # Revise R
   }
 
   # bootstrap
