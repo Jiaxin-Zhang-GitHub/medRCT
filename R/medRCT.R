@@ -240,7 +240,7 @@ medRCT <- function(
 
   # set R to 1 if bootstrap is not required
   if (bootstrap == FALSE) {
-    boot_args$R = 1
+    boot_args$R = 0#1
   }
 
   # test for main estimation
