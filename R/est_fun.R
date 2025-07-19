@@ -334,7 +334,7 @@ medRCT.fun.safe <- function(
         )
       },
       warning = function(w) {
-        stop(w$message)
+        #stop(w$message)
       }
     ),
     error = function(e) {
